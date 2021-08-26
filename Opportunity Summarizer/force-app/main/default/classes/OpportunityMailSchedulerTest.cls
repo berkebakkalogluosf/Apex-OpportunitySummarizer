@@ -26,33 +26,33 @@ private class OpportunityMailSchedulerTest {
             DateTime now = System.now();
             Date closeDate = Date.newInstance(now.year() + 1, now.month(), now.day());
             
-            for (Integer i = 0; i < 3; i++) {
+            for (Integer i = 0; i < 6; i++) {
                 Opportunity opportunity = new Opportunity();
                 opportunity.Name = 'ClosedWon' + i;
                 opportunity.StageName = 'Closed Won';
-                opportunity.Amount = 400000000; //4 hundred mil
+                opportunity.Amount = 1;
                 opportunity.CloseDate = closeDate;
                 opportunity.AccountId = account.Id;
                 
                 opportunities.add(opportunity);
             }
             
-            for (Integer i = 0; i < 3; i++) {
+            for (Integer i = 0; i < 6; i++) {
                 Opportunity opportunity = new Opportunity();
                 opportunity.Name = 'ClosedLost' + i;
                 opportunity.StageName = 'Closed Lost';
-                opportunity.Amount = 2000000; //2 mil
+                opportunity.Amount = 2; //2 mil
                 opportunity.CloseDate = closeDate;
                 opportunity.AccountId = account.Id;
                 
                 opportunities.add(opportunity);
             }
             
-            for (Integer i = 0; i < 3; i++) {
+            for (Integer i = 0; i < 6; i++) {
                 Opportunity opportunity = new Opportunity();
                 opportunity.Name = 'Open' + i;
-                opportunity.StageName = 'Value Proposition';
-                opportunity.Amount = 900000000; //9 hundred mil
+                opportunity.StageName = 'Open';
+                opportunity.Amount = 3; //9 hundred mil
                 opportunity.CloseDate = closeDate;
                 opportunity.AccountId = account.Id;
                 
@@ -75,7 +75,7 @@ private class OpportunityMailSchedulerTest {
         
         System.assertEquals(OpportunityMailScheduler.DAILY_CRON_EXP, ct.CronExpression);
         System.assertEquals(0, ct.TimesTriggered);
-        System.assertEquals('2021-08-26 10:00:00', String.valueOf(ct.NextFireTime)); // Tested In: 2021-08-25 16:00:00
+        System.assertEquals('2021-08-27 10:00:00', String.valueOf(ct.NextFireTime)); // Tested In: 2021-08-26 17:00:00
         
         Test.stopTest();
     }
@@ -91,7 +91,7 @@ private class OpportunityMailSchedulerTest {
         
         System.assertEquals(OpportunityMailScheduler.WEEKLY_CRON_EXP, ct.CronExpression);
         System.assertEquals(0, ct.TimesTriggered);
-        System.assertEquals('2021-08-27 13:00:00', String.valueOf(ct.NextFireTime)); // Tested In: 2021-08-25 16:00:00
+        System.assertEquals('2021-08-27 13:00:00', String.valueOf(ct.NextFireTime)); // Tested In: 2021-08-26 17:00:00
         
         Test.stopTest();
     }
@@ -107,7 +107,7 @@ private class OpportunityMailSchedulerTest {
         
         System.assertEquals(OpportunityMailScheduler.MONTHLY_CRON_EXP, ct.CronExpression);
         System.assertEquals(0, ct.TimesTriggered);
-        System.assertEquals('2021-08-27 18:00:00', String.valueOf(ct.NextFireTime)); // Tested In: 2021-08-25 16:00:00
+        System.assertEquals('2021-08-27 18:00:00', String.valueOf(ct.NextFireTime)); // Tested In: 2021-08-26 17:00:00
         
         Test.stopTest();
     }
