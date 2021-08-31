@@ -1,0 +1,11 @@
+
+*.json
+*.js
+*.xml
+*.md
+Opportunity Summarizer/scripts/soql/account.soql
+Opportunity Summarizer/scripts/apex/hello.apex
+Opportunity Summarizer/.prettierrc
+Opportunity Summarizer/.prettierignore
+Opportunity Summarizer/.forceignore
+Opportunity Summarizer/.eslintignore
