@@ -1,3 +1,9 @@
+/****************************************************************************************************************
+* @Name				: OpportunityMailScheduler.apxc
+* @Description		: Schedulable class for the batchable class OpportunitySummarizer
+* @Created By		: Berke Bakkaloğlu
+* 
+*****************************************************************************************************************/
 global class OpportunityMailScheduler implements Schedulable {
 
     public static final String DAILY_CRON_EXP = '0 0 10 * * ?';

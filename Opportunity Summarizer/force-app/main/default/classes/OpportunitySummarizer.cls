@@ -10,13 +10,13 @@ global class OpportunitySummarizer implements Database.Batchable<sObject>, Datab
     static final String STAGE_CLOSED_WON = 'Closed Won';
     static final String STAGE_CLOSED_LOST = 'Closed Lost';
     static final Set<String> STAGES_TO_REPORT = new Set<String>{STAGE_CLOSED_WON, STAGE_OPEN, STAGE_CLOSED_LOST};
-    private Map<Id, Map<String, Decimal>> accountOpportunities = new Map<Id, Map<String, Decimal>>();
+    @TestVisible private static Map<Id, Map<String, Decimal>> accountOpportunities = new Map<Id, Map<String, Decimal>>();
     
     global Database.QueryLocator start (Database.BatchableContext bc) {
         try {  
             return Database.getQueryLocator('SELECT Id, AccountId, StageName, Amount ' +
                                             'FROM Opportunity WHERE StageName IN :STAGES_TO_REPORT ' + 
-                                            'AND (CreatedDate = THIS_MONTH OR LastActivityDate = THIS_MONTH)');
+                                            'AND (CreatedDate = THIS_MONTH OR LastModifiedDate = THIS_MONTH)');
         } catch (QueryException e) {
             System.debug(e);
         }
@@ -54,9 +54,11 @@ global class OpportunitySummarizer implements Database.Batchable<sObject>, Datab
         
         for (Id accountId : accountIds) {
             Map<String, Decimal> stageTotalAmounts = accountOpportunities.get(accountId);
+            
             Decimal totalOpen = stageTotalAmounts.get(STAGE_OPEN);
             Decimal totalClosedWon = stageTotalAmounts.get(STAGE_CLOSED_WON);
             Decimal totalClosedLost = stageTotalAmounts.get(STAGE_CLOSED_LOST);
+            
             String accountName = accountNames.get(accountId);
             String primaryContactEmail = primaryContactEmails.get(accountId);
 
@@ -74,74 +76,65 @@ global class OpportunitySummarizer implements Database.Batchable<sObject>, Datab
                              '<tr><td>' + accountName + '</td><td>Closed Lost</td><td>' + totalClosedLost + '</td></tr>' +
                              '</table></body></html>');
             
-            Messaging.sendEmail(new List<Messaging.Email> {mail});
+            try {
+                Messaging.sendEmail(new List<Messaging.SingleEmailMessage> {mail});
+            } catch (Exception e) {
+                System.debug(e);
+            }
         }
     }
     
     /****************************************************************************************************************
     * @Name				: checkAccountMap
     * @Description		: Checks if the Opportunity's Account exists in the map, 
-    * 					  checks the stages if it exists, creates a new map entry if it doesn't
+    * 					  adds the amount of the Opportunity to the corresponding stage if it exists,
+    * 					  maps all the stages and sets the amount for the Opportunity's amount for the right stage otherwise
     * @Created By		: Berke Bakkaloğlu
     * @Param	opp	Opportunity	Iterative element of the data we get from the start block
     * 
     *****************************************************************************************************************/
     private void checkAccountMap(Opportunity opp) {
         if (accountOpportunities.containsKey(opp.AccountId)) {
-            checkStageNameMap(opp);
+            Map<String, Decimal> stageTotalAmounts = accountOpportunities.get(opp.AccountId);
+            sumAmounts(opp, stageTotalAmounts);
         } else {
-            createMapEntry(opp.AccountId, opp.StageName, opp.Amount);
+            initializeAccount(opp);
         }
     }
     
     /****************************************************************************************************************
-    * @Name				: checkStageNameMap
-    * @Description		: Checks if the Account's stages exists in the map, 
-    * 					  checks the amount if it exists, creates a new map entry if it doesn't
+    * @Name				: sumAmounts
+    * @Description		: Adds the amount of the current Opportunity to the existing amount in the map and updates the map
     * @Created By		: Berke Bakkaloğlu
     * @Param	opp	Opportunity	Iterative element of the data we get from the start block
+    * @Param	stageTotalAmounts	Map<String, Decimal> Map of stages and amounts that already exist for the Account
     * 
     *****************************************************************************************************************/
-    private void checkStageNameMap(Opportunity opp) {
-        Map<String, Decimal> stageTotalAmounts = accountOpportunities.get(opp.AccountId);
-        if (stageTotalAmounts.containsKey(opp.StageName)) {
-            checkAmountMap(opp, stageTotalAmounts);
-        } else {
-            createMapEntry(opp.AccountId, opp.StageName, opp.Amount);
-        }
-    }
-    
-    /****************************************************************************************************************
-    * @Name				: checkAmountMap
-    * @Description		: Checks if the stage's amount exists in the map, 
-    * 					  adds the amount to the existing amount and updates the map if it exists,
-    * 					  creates a new map entry if it doesn't
-    * @Created By		: Berke Bakkaloğlu
-    * @Param	opp	Opportunity	Iterative element of the data we get from the start block
-    * @Param	stageTotalAmounts Map<String, Decimal> Map of stages and amounts that already exist for the Account
-    * 
-    *****************************************************************************************************************/
-    private void checkAmountMap(Opportunity opp, Map<String, Decimal> stageTotalAmounts) {
+    private void sumAmounts(Opportunity opp, Map<String, Decimal> stageTotalAmounts) {
         Decimal totalAmount = stageTotalAmounts.get(opp.StageName);
-        if (totalAmount != null) {
-            Decimal newTotalAmount = totalAmount + opp.Amount;
+        Decimal newTotalAmount = totalAmount + opp.Amount;
             
-            createMapEntry(opp.AccountId, opp.StageName, newTotalAmount);
-        } else {
-            createMapEntry(opp.AccountId, opp.StageName, opp.Amount);
-        }
+        stageTotalAmounts.put(opp.StageName, newTotalAmount);
+        accountOpportunities.put(opp.AccountId, stageTotalAmounts);
     }
     
     /****************************************************************************************************************
-    * @Name				: createMapEntry
-    * @Description		: Creates or updates an accountOpportunities map entry using the parameters
+    * @Name				: initializeAccount
+    * @Description		: Creates all the stages for the current Opportunity's Account with zero amount
+    * 					  and updates the stage that corresponds to the current Opportunity
     * @Created By		: Berke Bakkaloğlu
-    * @Param	accountId	Id		The id of the current Opportunity's Account
-    * @Param	stageName	String	The stage name for the current Opportunity
-    * @Param	amount		Decimal	The amount for the current Opportunity
+    * @Param	opp	Opportunity	Iterative element of the data we get from the start block
     * 
     *****************************************************************************************************************/
-    private void createMapEntry(Id accountId, String stageName, Decimal amount) {
-        accountOpportunities.put(accountId, new Map<String, Decimal>{stageName => amount});
+    private void initializeAccount(Opportunity opp) {
+        Map<String, Decimal> initialStageAmounts = new Map<String, Decimal>();
+        // Initialize all stages
+        initialStageAmounts.put(STAGE_OPEN, 0);
+        initialStageAmounts.put(STAGE_CLOSED_WON, 0);
+        initialStageAmounts.put(STAGE_CLOSED_LOST, 0);
+        
+        // Update the stage that corresponds to the Opportunity
+        initialStageAmounts.put(opp.StageName, opp.Amount);
+        accountOpportunities.put(opp.AccountId, initialStageAmounts);
     }
 }
